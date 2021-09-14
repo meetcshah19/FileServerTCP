@@ -33,6 +33,29 @@ void download_file(int sockfd, char *filename) {
   fclose(fp);   
 }
 
+void upload_file(int sockfd, char *filepath) {
+  FILE *fp = fopen(filepath, "r"); 
+  if(fp == NULL) {
+     perror("File does not exist\n"); 
+     return; 
+  }
+
+  char filename[FILENAME_SIZE] = {0};
+
+  int last_index = strlen(filepath) - 1;
+  for(; last_index >= 0; last_index--) if(filepath[last_index] == '/') {
+     break; 
+  } 
+
+  strcpy(filename, filepath + last_index + 1); 
+
+  send_request(sockfd, Global::UPLOAD, filename);
+  send_file(sockfd, fp);
+  fclose(fp); 
+  printf("[+]File data sent successfully.\n");
+
+}
+
 void list_files(int sockfd) {
   send_request(sockfd, Global::LIST);
 
@@ -43,6 +66,17 @@ void list_files(int sockfd) {
   read_data(sockfd, files_list, len); 
   printf("%s", files_list); 
 } 
+
+void delete_file(int sockfd, char *filename) {
+  send_request(sockfd, Global::DELETE, filename);
+}
+
+void rename_file(int sockfd, char *filename) {
+  send_request(sockfd, Global::RENAME, filename);
+  char *new_file_name = "abracadabra.txt";  //TODO: remove hardcode
+  send_long(sockfd, strlen(new_file_name));
+  send_data(sockfd, (void *)new_file_name, strlen(new_file_name));
+}
 
 int main(int argc, char** argv) {
   char *ip = "127.0.0.1";
@@ -72,7 +106,18 @@ int main(int argc, char** argv) {
  std::cout<<"[+]Connected to Server."<<std::endl;
 
   //download test
-  download_file(sockfd,"meetfinal.mp4");
+  // download_file(sockfd,"ab.txt");
+
+  //delete test
+  // delete_file(sockfd, "cd.txt");
 
 
+  //list test
+  // list_files(sockfd);
+
+  //rename test
+  // rename_file(sockfd, "ab.txt");
+
+  //upload test
+  upload_file(sockfd, "test.txt");
 }
