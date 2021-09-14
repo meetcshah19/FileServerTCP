@@ -32,7 +32,7 @@ void write_file(int sockfd, FILE *fp){
     if (n <= 0){ 
       break;
     }
-    write(fileno(fp), buffer,n);
+    fprintf(fp, "%s", buffer);
     bzero(buffer, SIZE);
   }
 

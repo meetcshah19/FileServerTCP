@@ -6,13 +6,18 @@
 #include <iostream>
 #include "global.cpp"
 
-// Download file from server
-void download_file(int sockfd, char *filename) {
+void send_request(int sockfd, Global::Commands command, char *filename = NULL) {
   char request_buffer[REQUEST_SIZE];
   //make request
-  request_buffer[0] = Global::DOWNLOAD;
-  strcpy(request_buffer+1, filename);
+  request_buffer[0] = command;
+  if(filename != NULL){
+    strcpy(request_buffer+1, filename);
+  }
   send(sockfd, request_buffer, REQUEST_SIZE, 0); // TODO : doesn't work necessarily
+}
+// Download file from server
+void download_file(int sockfd, char *filename) {
+  send_request(sockfd, Global::DOWNLOAD, filename);
   FILE *fp;
   fp = fopen(filename, "w");
   
@@ -22,9 +27,28 @@ void download_file(int sockfd, char *filename) {
   write_file(sockfd, fp);   
 }
 
+void list_files(int sockfd) {
+  send_request(sockfd, Global::LIST);
+
+  //receive file list
+  char filename[FILENAME_SIZE];
+  while (1) {
+    int bytes_received = recv(sockfd, filename, FILENAME_SIZE, 0);
+    if (bytes_received <= 0){ 
+      break;
+    }
+    std::cout << filename;
+    bzero(filename, FILENAME_SIZE);
+  }
+} 
+
+void delete_file(int sockfd, char *filename) {
+  send_request(sockfd, Global::DELETE, filename);
+}
+
 int main(int argc, char** argv) {
   char *ip = "127.0.0.1";
-  int port = 6969;
+  int port = 8000;
   int e;
 
   //connect to socket
@@ -49,8 +73,12 @@ int main(int argc, char** argv) {
   }
  std::cout<<"[+]Connected to Server."<<std::endl;
 
-  //download test
-  download_file(sockfd,"meetfinal.mp4");
+  // download test
+  // download_file(sockfd,"meetfinal.mp4");
 
+  //list test
+  // list_files(sockfd);
 
+  //delete test
+  delete_file(sockfd, "ab.txt");
 }

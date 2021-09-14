@@ -21,6 +21,27 @@ void download_file(int sockfd, char *filename) {
     close(sockfd);
 }
 
+void list_files(int sockfd) {
+	std::string file_list = ""; 
+	for (const auto &entry : std::filesystem::directory_iterator(STORAGE_PATH)) {
+        std::string filename = (entry.path().string().substr(STORAGE_PATH.size()) + "\n");
+        send(sockfd, filename.c_str(), filename.size() + 1, 0); 
+  }
+  close(sockfd);
+}
+
+void delete_file(int sockfd, char *filename) {
+  std::string file_path = STORAGE_PATH + filename;
+  FILE* fp = fopen(file_path.c_str(), "r"); 
+  if(fp == NULL) {
+		std::cout<<"File not found"<<std::endl;
+		return; 
+	}
+  std::string shell_command = "rm ";
+  shell_command += file_path; 
+  system(shell_command.c_str());
+}
+
 void handle_request(int sockfd) {
   char request_buffer[REQUEST_SIZE]; 
   char *filename = request_buffer + 1; 
@@ -30,27 +51,27 @@ void handle_request(int sockfd) {
 
   switch(request_buffer[0]) {
     case Global::UPLOAD: 
-		// write_file(sockfd, filename); 
- 		break; 
+		  // write_file(sockfd, filename); 
+ 		  break; 
     case Global::DOWNLOAD: 
-		download_file(sockfd, filename);
-		break; 
+		  download_file(sockfd, filename);
+		  break; 
     case Global::RENAME: 
-		// rename_file(sockfd, filename); 
-		break; 
+		  // rename_file(sockfd, filename); 
+		  break; 
     case Global::LIST: 
-		// list_files(sockfd); 
-		break; 
+		  list_files(sockfd); 
+		  break; 
     case Global::DELETE: 
-		// delete_file(sockfd, filename); 
-		break; 
+      delete_file(sockfd, filename); 
+      break; 
     default: perror("unknown command\n"); 
   } 
 }
 
 int main(){
   char *ip = "127.0.0.1";
-  int port = 6969;
+  int port = 8000;
   int e;
 
   int sockfd, new_sock;
