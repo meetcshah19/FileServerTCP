@@ -13,21 +13,22 @@ void download_file(int sockfd, char *filename) {
     std::string file_path = STORAGE_PATH + filename;
     FILE* fp = fopen(file_path.c_str(), "r"); 
     if(fp == NULL) {
-		std::cout<<"File not found"<<std::endl;
-		return; 
-	}
-    std::cout << filename << '\n'; //debug
-    send_file(sockfd,fp);
-    close(sockfd);
+      std::cout<<"File not found"<<std::endl;
+      close(sockfd);
+      return; 
+    }
+
+    send_file(sockfd, fp); 
+    fclose(fp); 
 }
 
 void handle_request(int sockfd) {
-  char request_buffer[REQUEST_SIZE]; 
+  long len; 
+  read_long(sockfd, &len); 
+  char *request_buffer = (char *)malloc(len * sizeof(char)); 
+  read_data(sockfd, request_buffer, len); 
   char *filename = request_buffer + 1; 
-  int bytes_read = recv(sockfd, request_buffer, REQUEST_SIZE, 0);
-
-  std::cout<<request_buffer[0]<<filename<<std::endl; 
-
+  
   switch(request_buffer[0]) {
     case Global::UPLOAD: 
 		// write_file(sockfd, filename); 

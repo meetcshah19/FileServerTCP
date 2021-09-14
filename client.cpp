@@ -6,21 +6,43 @@
 #include <iostream>
 #include "global.cpp"
 
+void send_request(int sockfd, Global::Commands command, char *filename = NULL) {
+  //make request
+  send_long(sockfd, REQUEST_SIZE); 
+
+  char request_buffer[REQUEST_SIZE];
+  request_buffer[0] = command;
+  if(filename != NULL){
+    strcpy(request_buffer+1, filename);
+  }
+
+  send_data(sockfd, request_buffer, REQUEST_SIZE);
+}
+
 // Download file from server
 void download_file(int sockfd, char *filename) {
-  char request_buffer[REQUEST_SIZE];
-  //make request
-  request_buffer[0] = Global::DOWNLOAD;
-  strcpy(request_buffer+1, filename);
-  send(sockfd, request_buffer, REQUEST_SIZE, 0); // TODO : doesn't work necessarily
-  FILE *fp;
-  fp = fopen(filename, "w");
+  send_request(sockfd, Global::DOWNLOAD, filename);
+  FILE *fp = fopen(filename, "w");
   
-  if(fp==NULL){
+  if(fp == NULL){
       std::cout<<"Can't create file"<<std::endl;
+      return; 
   }
-  write_file(sockfd, fp);   
+
+  read_file(sockfd, fp);   
+  fclose(fp);   
 }
+
+void list_files(int sockfd) {
+  send_request(sockfd, Global::LIST);
+
+  //receive file list
+  long len = 0; 
+  read_long(sockfd, &len); 
+  char *files_list = (char *)malloc(len * sizeof(char)); 
+  read_data(sockfd, files_list, len); 
+  printf("%s", files_list); 
+} 
 
 int main(int argc, char** argv) {
   char *ip = "127.0.0.1";
