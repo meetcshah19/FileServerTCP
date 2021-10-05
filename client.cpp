@@ -4,7 +4,10 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <iostream>
+
 #include "global.cpp"
+#include "client.h"
+
 
 void send_request(int sockfd, Global::Commands command, char *filename = NULL) {
   //make request
@@ -73,14 +76,12 @@ void delete_file(int sockfd, char *filename) {
 
 void rename_file(int sockfd, char *filename) {
   send_request(sockfd, Global::RENAME, filename);
-  char *new_file_name = "abracadabra.txt";  //TODO: remove hardcode
+  char* new_file_name = "abracadabra.txt";  //TODO: remove hardcode
   send_long(sockfd, strlen(new_file_name));
   send_data(sockfd, (void *)new_file_name, strlen(new_file_name));
 }
 
 int main(int argc, char** argv) {
-  char *ip = "127.0.0.1";
-  int port = 6969;
   int e;
 
   //connect to socket
@@ -95,8 +96,8 @@ int main(int argc, char** argv) {
   std::cout<<"[+]Server socket created successfully."<<std::endl;
 
   server_addr.sin_family = AF_INET;
-  server_addr.sin_port = port;
-  server_addr.sin_addr.s_addr = inet_addr(ip);
+  server_addr.sin_port = PORT;
+  server_addr.sin_addr.s_addr = inet_addr(IP);
 
   e = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
   if(e == -1) {
@@ -105,19 +106,44 @@ int main(int argc, char** argv) {
   }
  std::cout<<"[+]Connected to Server."<<std::endl;
 
-  //download test
-  // download_file(sockfd,"ab.txt");
+ while(true) {
+  
+    std::cout<<"[i] \t Main Menu \n\n"<<std::endl;
 
-  //delete test
-  // delete_file(sockfd, "cd.txt");
+    std::cout<<"[1] \t Upload File: Press U / u "<<std::endl;
+    std::cout<<"[1] \t Download File: Press D / d "<<std::endl;
+    std::cout<<"[1] \t List Files: Press L / l "<<std::endl;
+    std::cout<<"[1] \t Delete/Remove File: Press R / r  "<<std::endl;
+    std::cout<<"[1] \t Rename/Change Name of File: Press C / c "<<std::endl;
+    std::cout<<"[1] \t Press Any other key to Exit "<<std::endl;
+    
+    char input;
+    std::cin >> input;
 
-
-  //list test
-  // list_files(sockfd);
-
-  //rename test
-  // rename_file(sockfd, "ab.txt");
-
-  //upload test
-  upload_file(sockfd, "test.txt");
+    switch(input) {
+      case 'U':
+      case 'u': 
+                upload_file(sockfd, "test.txt");
+                break;
+      case 'D':
+      case 'd': 
+                delete_file(sockfd, "test.txt");
+                break;
+      case 'L':
+      case 'l': 
+                list_files(sockfd);
+                break;
+      case 'R':
+      case 'r': 
+                delete_file(sockfd, "test.txt");
+                break;
+      case 'C':
+      case 'c': 
+                rename_file(sockfd, "test.txt");
+                break;
+      default:
+                std::cout<<"Terminating the Program";
+                exit(0);
+    }   
+ }
 }
