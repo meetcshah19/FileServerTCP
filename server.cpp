@@ -1,12 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string> 
+
 #include <arpa/inet.h>
 #include <iostream>
 #include <unistd.h>
+
+// #include <experimental/filesystem>
 #include <filesystem>
-#include <string> 
+
+#include <pthread.h>
+#include <semaphore.h>
+
+#include "server.h"
+#include "thread_pool.h"
+#include "filesystem.h"
 #include "global.cpp"
+
+
+sem_t alp, bet;
+pthread_t tid, connections[MAX_WORKERS];
+pthread_mutex_t lock;
+int curr_connections = 0;
 
 // Send file to client
 void download_file(int sockfd, char *filename) {
@@ -31,7 +47,7 @@ void upload_file(int sockfd, char *filename) {
 }
 
 void list_files(int sockfd) {
-  std::string file_list = ""; 
+  std::string file_list = "";
 	for (const auto &entry : std::filesystem::directory_iterator(STORAGE_PATH)) {
         file_list += (entry.path().string().substr(STORAGE_PATH.size()) + "\n");
   }
@@ -73,11 +89,9 @@ void rename_file(int sockfd, char *filename) {
 }
 
 
-
-
-
-
-void handle_request(int sockfd) {
+void *handle_request(void *arg) {
+  pthread_mutex_lock(&lock);
+  int sockfd = *(int *)arg;
   long len; 
   read_long(sockfd, &len); 
   char *request_buffer = (char *)malloc(len * sizeof(char)); 
@@ -101,17 +115,55 @@ void handle_request(int sockfd) {
 		delete_file(sockfd, filename); 
 		break; 
     default: perror("unknown command\n"); 
+
   } 
+  pthread_mutex_unlock(&lock);
+  pthread_exit(NULL);
+}
+
+void start_serving(int sockfd) {
+  int new_sock;
+  struct sockaddr_in new_addr;
+  struct sockaddr_storage serverStorage;
+  socklen_t addr_size;
+
+  pthread_t th_ids[MAX_WORKERS];
+  size_t num_t = 0;
+
+  if (pthread_mutex_init(&lock, NULL) != 0) {
+      std::cerr << "\n ERROR: Mutex initialization failed";
+      exit(1);
+  }
+
+  while(true) {
+    addr_size = sizeof(new_addr);
+    new_sock = accept(sockfd, (struct sockaddr*)&serverStorage, &addr_size);
+    
+    if( new_sock < 0 ) {
+        printf("[!] Failure in Connection Reception \n");
+    }
+
+    if( pthread_create(&connections[num_t++], NULL, handle_request, &new_sock) != 0 ) {
+        printf("[!] Failure in thread creation: %ld\n", num_t);
+    }
+
+    if (num_t >= 50) {
+      num_t = 0;
+
+      while( num_t < 50 ) {
+          pthread_join(connections[num_t++], NULL);
+      }
+      num_t = 0;
+    }
+
+  }
 }
 
 int main(){
-  char *ip = "127.0.0.1";
-  int port = 6969;
   int e;
 
   int sockfd, new_sock;
-  struct sockaddr_in server_addr, new_addr;
-  socklen_t addr_size;
+  struct sockaddr_in server_addr;
 
   // create server socket
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -122,8 +174,8 @@ int main(){
   std::cout <<"[+]Server socket created successfully."<<std::endl;
 
   server_addr.sin_family = AF_INET;
-  server_addr.sin_port = port;
-  server_addr.sin_addr.s_addr = inet_addr(ip);
+  server_addr.sin_port = PORT;
+  server_addr.sin_addr.s_addr = inet_addr(IP);
 
   e = bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
   if(e < 0) {
@@ -139,12 +191,6 @@ int main(){
     exit(1);
   }
 
-// handle connections
-  while(true) {
-    addr_size = sizeof(new_addr);
-    new_sock = accept(sockfd, (struct sockaddr*)&new_addr, &addr_size);
-    handle_request(new_sock);
-  }
-
+  start_serving(sockfd);
   return 0;
 }
