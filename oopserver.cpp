@@ -57,40 +57,37 @@ class ClientSocket : public Socket {
             std::cout << "[+] Connection Established with Client" << std::endl;
         }
     }
-};
 
-class ServerSocket : public Socket {
-    private:
-    void uploadFile(ClientSocket *clientSocket, char *fileName) {
+    void uploadFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
         FILE *fp = fopen(filePath.c_str(), "w");
-        clientSocket->readFile(fp);
+        readFile(fp);
         fclose(fp);
     }
 
-    void downloadFile(ClientSocket *clientSocket, char *fileName) {
+    void downloadFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
         FILE* fp = fopen(filePath.c_str(), "r"); 
         if(fp == NULL) {
             std::cout<<"File not found"<<std::endl;
-            close(clientSocket->getDescriptor());
+            close( getDescriptor());
             return; 
         }
-        clientSocket->sendFile(fp); 
+        sendFile(fp); 
         fclose(fp);
     }
 
-    void listFiles(ClientSocket *clientSocket) {
+    void listFiles() {
         std::string file_list = "";
         for (const auto &entry : std::filesystem::directory_iterator(STORAGE_PATH)) {
             file_list += (entry.path().string().substr(STORAGE_PATH.size()) + "\n");
         }
-        clientSocket->sendLong(file_list.size()+1);
-        clientSocket->sendData((void *)file_list.c_str(), file_list.size()+1);
-        close(clientSocket->getDescriptor());
+        sendLong(file_list.size()+1);
+        sendData((void *)file_list.c_str(), file_list.size()+1);
+        close( getDescriptor());
     }
 
-    void deleteFile(ClientSocket *clientSocket, char *fileName) {
+    void deleteFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
         FILE* fp = fopen(filePath.c_str(), "r"); 
         if(fp == NULL) {
@@ -102,7 +99,7 @@ class ServerSocket : public Socket {
         system(shellCommand.c_str());
     }
 
-    void renameFile(ClientSocket *clientSocket, char *fileName) {
+    void renameFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
         FILE* fp = fopen(filePath.c_str(), "r"); 
         if(fp == NULL) {
@@ -110,9 +107,9 @@ class ServerSocket : public Socket {
             return; 
         }
         long len;
-        clientSocket->readLong(&len);
+        readLong(&len);
         char *requestBuffer = (char *)malloc(len * sizeof(char)); 
-        clientSocket->readData(requestBuffer, len); 
+        readData(requestBuffer, len); 
         char *newFileName = requestBuffer; 
 
         std::string shellCommand = "mv ";
@@ -121,9 +118,9 @@ class ServerSocket : public Socket {
         shellCommand += STORAGE_PATH + newFileName; 
         system(shellCommand.c_str());
     }
+};
 
-    
-
+class ServerSocket : public Socket {
     public:
     ServerSocket() {
         fileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
@@ -189,19 +186,19 @@ class ServerSocket : public Socket {
 
         switch(requestBuffer[0]) {
             case Global::UPLOAD: 
-                uploadFile(sock, fileName); 
+                sock->uploadFile(fileName); 
                 break; 
             case Global::DOWNLOAD: 
-                downloadFile(sock, fileName);
+                sock->downloadFile(fileName);
                 break; 
             case Global::RENAME: 
-                renameFile(sock, fileName); 
+                sock->renameFile(fileName); 
                 break; 
             case Global::LIST: 
-                listFiles(sock); 
+                sock->listFiles(); 
                 break; 
             case Global::DELETE: 
-                deleteFile(sock, fileName); 
+                sock->deleteFile(fileName); 
                 break; 
             default: 
                 perror("unknown command\n"); 
