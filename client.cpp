@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
                 break;
       case 'D':
       case 'd': 
-                delete_file(sockfd, "test.txt");
+                download_file(sockfd, "test.txt");
                 break;
       case 'L':
       case 'l': 
