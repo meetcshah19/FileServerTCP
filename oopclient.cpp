@@ -142,11 +142,10 @@ class MenuHandler {
 };
 
 int main(int argc, char** argv) {
-    ServerSocket serverSocket;
-    serverSocket.establishConnection(PORT, IP);
-
     MenuHandler M;
     while(true) {
+        ServerSocket serverSocket;
+        serverSocket.establishConnection(PORT, IP);
         M.printMenu();
         char choice;
         std::cin >> choice;
