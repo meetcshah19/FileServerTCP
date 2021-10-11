@@ -36,7 +36,7 @@ void download_file(int sockfd, char *filename) {
   fclose(fp);   
 }
 
-void upload_file(int sockfd, char *filepath) {
+void upload_file(int sockfd, const char *filepath) {
   FILE *fp = fopen(filepath, "r"); 
   if(fp == NULL) {
      perror("File does not exist\n"); 
@@ -82,31 +82,32 @@ void rename_file(int sockfd, char *filename) {
 }
 
 int main(int argc, char** argv) {
-  int e;
-
-  //connect to socket
-  int sockfd;
-  struct sockaddr_in server_addr;
-
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if(sockfd < 0) {
-    std::cout<<"[-]Error in socket"<<std::endl;
-    exit(1);
-  }
-  std::cout<<"[+]Server socket created successfully."<<std::endl;
-
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = PORT;
-  server_addr.sin_addr.s_addr = inet_addr(IP);
-
-  e = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
-  if(e == -1) {
-    std::cout<<"[-]Error in socket"<<std::endl;
-    exit(1);
-  }
- std::cout<<"[+]Connected to Server."<<std::endl;
-
  while(true) {
+    int e;
+
+    //connect to socket
+    int sockfd;
+    struct sockaddr_in server_addr;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if(sockfd < 0) {
+      std::cout<<"[-]Error in socket"<<std::endl;
+      exit(1);
+    }
+    std::cout<<"[+]Server socket created successfully."<<std::endl;
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = PORT;
+    server_addr.sin_addr.s_addr = inet_addr(IP);
+
+    e = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if(e == -1) {
+      std::cout<<"[-]Error in socket"<<std::endl;
+      exit(1);
+    }
+
+
+    std::cout<<"[+]Connected to Server."<<std::endl;
   
     std::cout<<"[i] \t Main Menu \n\n"<<std::endl;
 
@@ -120,10 +121,12 @@ int main(int argc, char** argv) {
     char input;
     std::cin >> input;
 
+    std::string s;
     switch(input) {
       case 'U':
       case 'u': 
-                upload_file(sockfd, "test.txt");
+                std::cin >> s;
+                upload_file(sockfd, s.c_str());
                 break;
       case 'D':
       case 'd': 

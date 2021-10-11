@@ -90,7 +90,7 @@ void rename_file(int sockfd, char *filename) {
 
 
 void *handle_request(void *arg) {
-  pthread_mutex_lock(&lock);
+  // pthread_mutex_lock(&lock);
   int sockfd = *(int *)arg;
   long len; 
   read_long(sockfd, &len); 
@@ -117,7 +117,7 @@ void *handle_request(void *arg) {
     default: perror("unknown command\n"); 
 
   } 
-  pthread_mutex_unlock(&lock);
+  // pthread_mutex_unlock(&lock);
   pthread_exit(NULL);
 }
 

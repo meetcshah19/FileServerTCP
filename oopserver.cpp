@@ -14,21 +14,6 @@
 
 #define QUEUE_LIM 10
 
-
-sem_t alp, bet;
-pthread_t threads[MAX_WORKERS];
-pthread_mutex_t lock;
-int currentConnections = 0;
-size_t numThreads = 0;
-
-     
-void initLock() {
-    if (pthread_mutex_init(&lock, NULL) != 0) {
-        std::cerr << "\n ERROR: Mutex initialization failed";
-        exit(1);
-    }
-}
-
 class ServerSocket;
 class ClientSocket;
 
@@ -61,7 +46,12 @@ class ClientSocket : public Socket {
     void uploadFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
         FILE *fp = fopen(filePath.c_str(), "w");
+        if(fp == NULL) {
+            std::cerr << filePath << std::endl;
+            std::cerr << "null kese aaya" << std::endl;
+        }
         readFile(fp);
+        std::cerr << "fclose tak aa gya" << std::endl;
         fclose(fp);
     }
 
@@ -158,24 +148,20 @@ class ServerSocket : public Socket {
     }
 
     void startServing() {
-        initLock();
+
         while(true) {
             ClientSocket newClient(fileDescriptor);
-            Arg A(this, &newClient);
-            if(pthread_create(&threads[numThreads++], NULL, &globalHandleRequest, (void *)&A) != 0 ) {
-                std::cout << "[!] Failure in thread creation: " << numThreads << std::endl;
+            pthread_t newThread;
+            if(pthread_create(&newThread, NULL, handleRequest, (void *)&newClient) != 0 ) {
+                std::cout << "[!] Failure in thread creation!!" << std::endl;
             }
-            if (numThreads >= 50) {
-                numThreads = 0;
-                while( numThreads < 50 ) {
-                    pthread_join(threads[numThreads++], NULL);
-                }
-                numThreads = 0;
-            }
+            //handleRequest(&newClient);
         }
     }
 
-    void handleRequest(ClientSocket *sock) {
+    static void* handleRequest(void *arg) {
+        std::cerr << "entered new thread" << std::endl;
+        ClientSocket* sock = (ClientSocket *)(arg);
         long len;
         sock->readLong(&len);
 
@@ -183,6 +169,8 @@ class ServerSocket : public Socket {
         sock->readData(requestBuffer, len);
 
         char *fileName = requestBuffer + 1;
+
+        std::cerr << len << " " << fileName << std::endl;
 
         switch(requestBuffer[0]) {
             case Global::UPLOAD: 
@@ -203,16 +191,9 @@ class ServerSocket : public Socket {
             default: 
                 perror("unknown command\n"); 
         }
+        pthread_exit(NULL);
     }   
 };
-
-void *globalHandleRequest(void *arg) {
-    pthread_mutex_lock(&lock);
-    Arg A = *((Arg *)(arg));
-    A.S->handleRequest(A.C);
-    pthread_mutex_unlock(&lock);
-    pthread_exit(NULL);
-}
 
 int main() {
     ServerSocket serverSocket;

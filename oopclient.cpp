@@ -33,7 +33,7 @@ class ServerSocket : public Socket {
     }
 
 
-    void sendRequest(Global::Commands command, char *fileName = NULL) {
+    void sendRequest(Global::Commands command, const char *fileName = NULL) {
         //make request
         sendLong(REQUEST_SIZE); 
         char  requestBuffer[REQUEST_SIZE];
@@ -41,11 +41,11 @@ class ServerSocket : public Socket {
         if(fileName != NULL){
             strcpy( requestBuffer+1, fileName);
         }
-        sendData( requestBuffer, REQUEST_SIZE);
+        std::cerr << sendData( requestBuffer, REQUEST_SIZE) << std::endl;
     }
 
     // Download file from server
-    void downloadFile(char *fileName) {
+    void downloadFile(const char *fileName) {
         sendRequest(Global::DOWNLOAD, fileName);
         FILE *fp = fopen(fileName, "w");
         
@@ -58,7 +58,7 @@ class ServerSocket : public Socket {
         fclose(fp);   
     }
 
-    void uploadFile(char *filePath) {
+    void uploadFile(const char *filePath) {
         FILE *fp = fopen(filePath, "r"); 
         if(fp == NULL) {
             perror("File does not exist\n"); 
@@ -88,15 +88,17 @@ class ServerSocket : public Socket {
         std::cout << filesList << std::endl; 
     } 
 
-    void deleteFile(char *fileName) {
+    void deleteFile(const char *fileName) {
         sendRequest( Global::DELETE, fileName);
     }
 
-    void renameFile(char *fileName) {
+    void renameFile(const char *fileName) {
+        std::cout << "Enter new file name: ";
+        std::string newFileName;
+        std::cin >> newFileName;
         sendRequest(Global::RENAME, fileName);
-        char* new_file_name = "abracadabra.txt";  //TODO: remove hardcode
-        sendLong(strlen(new_file_name));
-        sendData((void *)new_file_name, strlen(new_file_name));
+        sendLong(strlen(newFileName.c_str()));
+        sendData((void *)newFileName.c_str(), strlen(newFileName.c_str()));
     }
 };
 
@@ -112,27 +114,49 @@ class MenuHandler {
         std::cout << "[6] \t Press Any other key to Exit " << std::endl;
     }
 
-    void handleChoice(char choice, ServerSocket& serverSocket) {
+    std::string readFileName() {
+        std::string fileName, waste;
+        getline(std::cin, waste);
+        getline(std::cin, fileName);
+        return fileName;
+    }
+
+    void handleChoice(char choice) {
+        std::string fileName;
+        ServerSocket serverSocket;
         switch(choice) {
             case 'U':
             case 'u': 
-                        serverSocket.uploadFile("test.txt");
+                        serverSocket.establishConnection(PORT, IP);  
+                        std::cout << "Enter file path: ";
+                        fileName = readFileName();
+                        serverSocket.uploadFile(fileName.c_str());
                         break;
             case 'D':
             case 'd': 
-                        serverSocket.downloadFile("abracadabra.txt");
+                        serverSocket.establishConnection(PORT, IP);  
+                        std::cout << "Enter file name: ";
+                        fileName = readFileName();
+                        serverSocket.downloadFile(fileName.c_str());
                         break;
             case 'L':
             case 'l': 
+                        serverSocket.establishConnection(PORT, IP);  
                         serverSocket.listFiles();
                         break;
             case 'R':
             case 'r': 
-                        serverSocket.deleteFile("test.txt");
+                        serverSocket.establishConnection(PORT, IP);  
+                        std::cout << "Enter file name: ";
+                        fileName = readFileName();
+                        serverSocket.deleteFile(fileName.c_str());
                         break;
             case 'C':
             case 'c': 
-                        serverSocket.renameFile("test.txt");
+                        serverSocket.establishConnection(PORT, IP);  
+                        std::cout << "Enter file name: ";
+                        fileName = readFileName();
+                        serverSocket.renameFile(fileName.c_str());
                         break;
             default:
                         std::cout << "Terminating the Program" << std::endl << std::endl;
@@ -143,12 +167,10 @@ class MenuHandler {
 
 int main(int argc, char** argv) {
     MenuHandler M;
-    while(true) {
-        ServerSocket serverSocket;
-        serverSocket.establishConnection(PORT, IP);
+    while(true) {  
         M.printMenu();
         char choice;
         std::cin >> choice;
-        M.handleChoice(choice, serverSocket);
+        M.handleChoice(choice);
     }
 }
