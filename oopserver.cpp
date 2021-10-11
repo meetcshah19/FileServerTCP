@@ -148,11 +148,10 @@ class ServerSocket : public Socket {
     }
 
     void startServing() {
-
         while(true) {
-            ClientSocket newClient(fileDescriptor);
+            ClientSocket *newClient = new ClientSocket(fileDescriptor);
             pthread_t newThread;
-            if(pthread_create(&newThread, NULL, handleRequest, (void *)&newClient) != 0 ) {
+            if(pthread_create(&newThread, NULL, handleRequest, (void *)newClient) != 0 ) {
                 std::cout << "[!] Failure in thread creation!!" << std::endl;
             }
             //handleRequest(&newClient);
@@ -164,14 +163,10 @@ class ServerSocket : public Socket {
         ClientSocket* sock = (ClientSocket *)(arg);
         long len;
         sock->readLong(&len);
-
         char *requestBuffer = (char *)malloc(len * sizeof(char));
         sock->readData(requestBuffer, len);
 
         char *fileName = requestBuffer + 1;
-
-        std::cerr << len << " " << fileName << std::endl;
-
         switch(requestBuffer[0]) {
             case Global::UPLOAD: 
                 sock->uploadFile(fileName); 

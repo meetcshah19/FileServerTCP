@@ -22,6 +22,8 @@ namespace Global {
     };
 }
 
+#define print(x) std::cerr << #x << " is " << x << std::endl 
+
 class Socket {
     protected:
     int fileDescriptor;

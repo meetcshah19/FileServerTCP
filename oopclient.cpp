@@ -41,6 +41,7 @@ class ServerSocket : public Socket {
         if(fileName != NULL){
             strcpy( requestBuffer+1, fileName);
         }
+        std::cerr << requestBuffer+1 << std::endl;
         std::cerr << sendData( requestBuffer, REQUEST_SIZE) << std::endl;
     }
 
@@ -64,7 +65,7 @@ class ServerSocket : public Socket {
             perror("File does not exist\n"); 
             return; 
         }
-        char fileName[FILENAME_SIZE] = {0};
+        char fileName[FILENAME_SIZE] = {};
         int last_index = strlen(filePath) - 1;
         for(; last_index >= 0; last_index--) if(filePath[last_index] == '/') {
             break; 
@@ -118,6 +119,7 @@ class MenuHandler {
         std::string fileName, waste;
         getline(std::cin, waste);
         getline(std::cin, fileName);
+        std::cerr << fileName << " " << waste << std::endl;
         return fileName;
     }
 
