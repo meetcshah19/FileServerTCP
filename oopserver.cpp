@@ -46,12 +46,7 @@ class ClientSocket : public Socket {
     void uploadFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
         FILE *fp = fopen(filePath.c_str(), "w");
-        if(fp == NULL) {
-            std::cerr << filePath << std::endl;
-            std::cerr << "null kese aaya" << std::endl;
-        }
         readFile(fp);
-        std::cerr << "fclose tak aa gya" << std::endl;
         fclose(fp);
     }
 
@@ -59,7 +54,7 @@ class ClientSocket : public Socket {
         std::string filePath = STORAGE_PATH + fileName;
         FILE* fp = fopen(filePath.c_str(), "r"); 
         if(fp == NULL) {
-            std::cout<<"File not found"<<std::endl;
+            std::cout << "File not found" << std::endl;
             close( getDescriptor());
             return; 
         }
@@ -68,12 +63,12 @@ class ClientSocket : public Socket {
     }
 
     void listFiles() {
-        std::string file_list = "";
+        std::string fileList = "";
         for (const auto &entry : std::filesystem::directory_iterator(STORAGE_PATH)) {
-            file_list += (entry.path().string().substr(STORAGE_PATH.size()) + "\n");
+            fileList += (entry.path().string().substr(STORAGE_PATH.size()) + "\n");
         }
-        sendLong(file_list.size()+1);
-        sendData((void *)file_list.c_str(), file_list.size()+1);
+        sendLong(fileList.size()+1);
+        sendData((void *)fileList.c_str(), fileList.size()+1);
         close( getDescriptor());
     }
 
@@ -93,15 +88,17 @@ class ClientSocket : public Socket {
         std::string filePath = STORAGE_PATH + fileName;
         FILE* fp = fopen(filePath.c_str(), "r"); 
         if(fp == NULL) {
-            std::cout<<"File not found"<<std::endl;
+            std::cout<< "File not found" <<std::endl;
             return; 
         }
         long len;
         readLong(&len);
+        std::cerr << len << std::endl;
         char *requestBuffer = (char *)malloc(len * sizeof(char)); 
         readData(requestBuffer, len); 
         char *newFileName = requestBuffer; 
 
+        std::cerr << newFileName << std::endl;
         std::string shellCommand = "mv ";
         shellCommand += filePath;
         shellCommand += " ";
@@ -154,12 +151,10 @@ class ServerSocket : public Socket {
             if(pthread_create(&newThread, NULL, handleRequest, (void *)newClient) != 0 ) {
                 std::cout << "[!] Failure in thread creation!!" << std::endl;
             }
-            //handleRequest(&newClient);
         }
     }
 
     static void* handleRequest(void *arg) {
-        std::cerr << "entered new thread" << std::endl;
         ClientSocket* sock = (ClientSocket *)(arg);
         long len;
         sock->readLong(&len);
@@ -167,6 +162,7 @@ class ServerSocket : public Socket {
         sock->readData(requestBuffer, len);
 
         char *fileName = requestBuffer + 1;
+
         switch(requestBuffer[0]) {
             case Global::UPLOAD: 
                 sock->uploadFile(fileName); 

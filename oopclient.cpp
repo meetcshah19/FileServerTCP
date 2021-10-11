@@ -41,8 +41,7 @@ class ServerSocket : public Socket {
         if(fileName != NULL){
             strcpy( requestBuffer+1, fileName);
         }
-        std::cerr << requestBuffer+1 << std::endl;
-        std::cerr << sendData( requestBuffer, REQUEST_SIZE) << std::endl;
+        sendData(requestBuffer, REQUEST_SIZE);
     }
 
     // Download file from server
@@ -97,9 +96,10 @@ class ServerSocket : public Socket {
         std::cout << "Enter new file name: ";
         std::string newFileName;
         std::cin >> newFileName;
+        std::cerr << newFileName.c_str() << std::endl;
         sendRequest(Global::RENAME, fileName);
-        sendLong(strlen(newFileName.c_str()));
-        sendData((void *)newFileName.c_str(), strlen(newFileName.c_str()));
+        sendLong(strlen(newFileName.c_str())+1);
+        sendData((void *)newFileName.c_str(), strlen(newFileName.c_str())+1);
     }
 };
 
@@ -116,10 +116,8 @@ class MenuHandler {
     }
 
     std::string readFileName() {
-        std::string fileName, waste;
-        getline(std::cin, waste);
-        getline(std::cin, fileName);
-        std::cerr << fileName << " " << waste << std::endl;
+        std::string fileName;
+        std::cin >> fileName;
         return fileName;
     }
 
