@@ -6,15 +6,28 @@
 #include <filesystem>
 #include <pthread.h>
 #include <semaphore.h>
-#include <set>
 
+#include "server.h"
+#include "thread_pool.h"
 #include "filesystem.h"
-#include "global.cpp"
+#include "oopsglobal.cpp"
 
 #define QUEUE_LIM 10
 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-std::set<std::string> lockedFiles;
+class ServerSocket;
+class ClientSocket;
+
+struct Arg {
+    ServerSocket *S;
+    ClientSocket *C;
+    Arg(ServerSocket *A, ClientSocket *B) {
+        S = A;
+        C = B;
+    }
+};
+
+void *globalHandleRequest(void *);
+
 
 class ClientSocket : public Socket {
     public:
@@ -25,34 +38,19 @@ class ClientSocket : public Socket {
             std::cout << "[!] Failure in Connection Reception" << std::endl;
             return;
         }
+        else {
+            std::cout << "[+] Connection Established with Client" << std::endl;
+        }
     }
 
     void uploadFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
-
-        pthread_mutex_lock(&lock);
-        lockedFiles.insert(fileName);
-        pthread_mutex_unlock(&lock);
-
         FILE *fp = fopen(filePath.c_str(), "w");
         readFile(fp);
         fclose(fp);
-
-        pthread_mutex_lock(&lock);
-        lockedFiles.erase(fileName);
-        pthread_mutex_unlock(&lock); 
     }
 
     void downloadFile(char *fileName) {
-        while(true){
-            pthread_mutex_lock(&lock);
-            if(lockedFiles.count(fileName) == 0) {
-                pthread_mutex_unlock(&lock);
-                break;    
-            }
-            pthread_mutex_unlock(&lock);
-            sleep(SLEEP_TIME); 
-        }
         std::string filePath = STORAGE_PATH + fileName;
         FILE* fp = fopen(filePath.c_str(), "r"); 
         if(fp == NULL) {
@@ -93,13 +91,14 @@ class ClientSocket : public Socket {
             std::cout<< "File not found" <<std::endl;
             return; 
         }
-        
         long len;
         readLong(&len);
+        std::cerr << len << std::endl;
         char *requestBuffer = (char *)malloc(len * sizeof(char)); 
         readData(requestBuffer, len); 
         char *newFileName = requestBuffer; 
 
+        std::cerr << newFileName << std::endl;
         std::string shellCommand = "mv ";
         shellCommand += filePath;
         shellCommand += " ";
@@ -187,15 +186,10 @@ class ServerSocket : public Socket {
     }   
 };
 
-int main(int argc, char **argv){
-    if(argc != 3) {
-        std::cout << "Usage: ./server <IP> <PORT>" << std::endl;
-        return 0;
-    }
-
+int main() {
     ServerSocket serverSocket;
 
-    serverSocket.setAddress(atoi(argv[2]), argv[1]);
+    serverSocket.setAddress(PORT, IP);
 
     serverSocket.bindSocket();
 

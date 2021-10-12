@@ -10,7 +10,6 @@
 const int REQUEST_SIZE = 256; 
 const int SIZE = 1024; 
 const int FILENAME_SIZE = 256; 
-const float SLEEP_TIME = 0.5;
 const std::string STORAGE_PATH = "files/";
 
 namespace Global {

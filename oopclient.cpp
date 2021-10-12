@@ -5,11 +5,8 @@
 #include <arpa/inet.h>
 #include <iostream>
 
-#include "global.cpp"
-
-int PORT;
-std::string IP;
-
+#include "oopsglobal.cpp"
+#include "client.h"
 
 class ServerSocket : public Socket {
     public:
@@ -19,18 +16,20 @@ class ServerSocket : public Socket {
             std::cout <<"[-]Error in socket"<<std::endl;
             exit(1);
         }
+        std::cout << "[+]Server socket created successfully." <<std::endl;
     }
 
-    void establishConnection(int PORT, std::string IP) {
+    void establishConnection(int _PORT, std::string _IP) {
         address.sin_family = AF_INET;
-        address.sin_port = PORT;
-        address.sin_addr.s_addr = inet_addr(IP.c_str());
+        address.sin_port = _PORT;
+        address.sin_addr.s_addr = inet_addr(IP);
 
         int err = connect(fileDescriptor, (struct sockaddr*)&address, sizeof(address));
         if(err == -1) {
             std::cout<<"[-]Error in socket"<<std::endl;
             exit(1);
         }
+        std::cout<<"[+]Connected to Server."<<std::endl;
     }
 
 
@@ -56,8 +55,7 @@ class ServerSocket : public Socket {
         }
 
         readFile(fp);   
-        fclose(fp);  
-        std::cout << "[+] File Downloaded Successfully" << std::endl; 
+        fclose(fp);   
     }
 
     void uploadFile(const char *filePath) {
@@ -76,7 +74,7 @@ class ServerSocket : public Socket {
         sendRequest( Global::UPLOAD, fileName);
         sendFile( fp);
         fclose(fp); 
-        std::cout << "[+] File uploaded successfully." << std::endl;
+        std::cout << "[+]File data sent successfully." << std::endl;
 
     }
 
@@ -86,16 +84,12 @@ class ServerSocket : public Socket {
         long len = 0; 
         readLong( &len); 
         char *filesList = (char *)malloc(len * sizeof(char)); 
-        readData(filesList, len);
-        std::cout << "----------" << std::endl; 
-        std::cout << "FILE LIST " << std::endl;
-        std::cout << "----------" << std::endl; 
+        readData(filesList, len); 
         std::cout << filesList << std::endl; 
     } 
 
     void deleteFile(const char *fileName) {
         sendRequest( Global::DELETE, fileName);
-        std::cout << "[+] File Deleted Successfully" << std::endl;
     }
 
     void renameFile(const char *fileName) {
@@ -106,22 +100,19 @@ class ServerSocket : public Socket {
         sendRequest(Global::RENAME, fileName);
         sendLong(strlen(newFileName.c_str())+1);
         sendData((void *)newFileName.c_str(), strlen(newFileName.c_str())+1);
-        std::cout << "[+] File Renamed Successfully" << std::endl;
     }
 };
 
 class MenuHandler {
     public: 
     void printMenu() {
-        std::cout << "--------------------------------------" << std::endl;
-        std::cout << "[i] \t Main Menu " << std::endl << std::endl;
+        std::cout << "[i] \t Main Menu \n\n" << std::endl;
         std::cout << "[1] \t Upload File: Press U / u "<< std::endl;
         std::cout << "[2] \t Download File: Press D / d " << std::endl;
         std::cout << "[3] \t List Files: Press L / l " << std::endl;
         std::cout << "[4] \t Delete/Remove File: Press R / r  " << std::endl;
         std::cout << "[5] \t Rename/Change Name of File: Press C / c " << std::endl;
         std::cout << "[6] \t Press Any other key to Exit " << std::endl;
-        std::cout << "--------------------------------------" << std::endl;
     }
 
     std::string readFileName() {
@@ -175,14 +166,6 @@ class MenuHandler {
 };
 
 int main(int argc, char** argv) {
-    if(argc != 3) {
-        std::cout << "USAGE: ./client <SERVER_IP> <SERVER_PORT> " << std::endl;
-        return 0;
-    }
-    
-    IP = argv[1];
-    PORT = atoi(argv[2]);
-
     MenuHandler M;
     while(true) {  
         M.printMenu();
