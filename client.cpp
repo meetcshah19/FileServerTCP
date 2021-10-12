@@ -6,147 +6,188 @@
 #include <iostream>
 
 #include "global.cpp"
-#include "client.h"
+
+int PORT;
+std::string IP;
 
 
-void send_request(int sockfd, Global::Commands command, char *filename = NULL) {
-  //make request
-  send_long(sockfd, REQUEST_SIZE); 
+class ServerSocket : public Socket {
+    public:
+    ServerSocket() {
+        fileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
+        if(fileDescriptor < 0) {
+            std::cout <<"[-]Error in socket"<<std::endl;
+            exit(1);
+        }
+    }
 
-  char request_buffer[REQUEST_SIZE];
-  request_buffer[0] = command;
-  if(filename != NULL){
-    strcpy(request_buffer+1, filename);
-  }
+    void establishConnection(int PORT, std::string IP) {
+        address.sin_family = AF_INET;
+        address.sin_port = PORT;
+        address.sin_addr.s_addr = inet_addr(IP.c_str());
 
-  send_data(sockfd, request_buffer, REQUEST_SIZE);
-}
+        int err = connect(fileDescriptor, (struct sockaddr*)&address, sizeof(address));
+        if(err == -1) {
+            std::cout<<"[-]Error in socket"<<std::endl;
+            exit(1);
+        }
+    }
 
-// Download file from server
-void download_file(int sockfd, char *filename) {
-  send_request(sockfd, Global::DOWNLOAD, filename);
-  FILE *fp = fopen(filename, "w");
-  
-  if(fp == NULL){
-      std::cout<<"Can't create file"<<std::endl;
-      return; 
-  }
 
-  read_file(sockfd, fp);   
-  fclose(fp);   
-}
+    void sendRequest(Global::Commands command, const char *fileName = NULL) {
+        //make request
+        sendLong(REQUEST_SIZE); 
+        char  requestBuffer[REQUEST_SIZE];
+        requestBuffer[0] = command;
+        if(fileName != NULL){
+            strcpy( requestBuffer+1, fileName);
+        }
+        sendData(requestBuffer, REQUEST_SIZE);
+    }
 
-void upload_file(int sockfd, const char *filepath) {
-  FILE *fp = fopen(filepath, "r"); 
-  if(fp == NULL) {
-     perror("File does not exist\n"); 
-     return; 
-  }
+    // Download file from server
+    void downloadFile(const char *fileName) {
+        sendRequest(Global::DOWNLOAD, fileName);
+        FILE *fp = fopen(fileName, "w");
+        
+        if(fp == NULL){
+            std::cout<<"Can't create file"<<std::endl;
+            return; 
+        }
 
-  char filename[FILENAME_SIZE] = {0};
+        readFile(fp);   
+        fclose(fp);  
+        std::cout << "[+] File Downloaded Successfully" << std::endl; 
+    }
 
-  int last_index = strlen(filepath) - 1;
-  for(; last_index >= 0; last_index--) if(filepath[last_index] == '/') {
-     break; 
-  } 
+    void uploadFile(const char *filePath) {
+        FILE *fp = fopen(filePath, "r"); 
+        if(fp == NULL) {
+            perror("File does not exist\n"); 
+            return; 
+        }
+        char fileName[FILENAME_SIZE] = {};
+        int last_index = strlen(filePath) - 1;
+        for(; last_index >= 0; last_index--) if(filePath[last_index] == '/') {
+            break; 
+        } 
+        strcpy(fileName, filePath + last_index + 1); 
 
-  strcpy(filename, filepath + last_index + 1); 
+        sendRequest( Global::UPLOAD, fileName);
+        sendFile( fp);
+        fclose(fp); 
+        std::cout << "[+] File uploaded successfully." << std::endl;
 
-  send_request(sockfd, Global::UPLOAD, filename);
-  send_file(sockfd, fp);
-  fclose(fp); 
-  printf("[+]File data sent successfully.\n");
+    }
 
-}
+    void listFiles() {
+        sendRequest( Global::LIST);
+        //receive file list
+        long len = 0; 
+        readLong( &len); 
+        char *filesList = (char *)malloc(len * sizeof(char)); 
+        readData(filesList, len);
+        std::cout << "----------" << std::endl; 
+        std::cout << "FILE LIST " << std::endl;
+        std::cout << "----------" << std::endl; 
+        std::cout << filesList << std::endl; 
+    } 
 
-void list_files(int sockfd) {
-  send_request(sockfd, Global::LIST);
+    void deleteFile(const char *fileName) {
+        sendRequest( Global::DELETE, fileName);
+        std::cout << "[+] File Deleted Successfully" << std::endl;
+    }
 
-  //receive file list
-  long len = 0; 
-  read_long(sockfd, &len); 
-  char *files_list = (char *)malloc(len * sizeof(char)); 
-  read_data(sockfd, files_list, len); 
-  printf("%s", files_list); 
-} 
+    void renameFile(const char *fileName) {
+        std::cout << "Enter new file name: ";
+        std::string newFileName;
+        std::cin >> newFileName;
+        std::cerr << newFileName.c_str() << std::endl;
+        sendRequest(Global::RENAME, fileName);
+        sendLong(strlen(newFileName.c_str())+1);
+        sendData((void *)newFileName.c_str(), strlen(newFileName.c_str())+1);
+        std::cout << "[+] File Renamed Successfully" << std::endl;
+    }
+};
 
-void delete_file(int sockfd, char *filename) {
-  send_request(sockfd, Global::DELETE, filename);
-}
+class MenuHandler {
+    public: 
+    void printMenu() {
+        std::cout << "--------------------------------------" << std::endl;
+        std::cout << "[i] \t Main Menu " << std::endl << std::endl;
+        std::cout << "[1] \t Upload File: Press U / u "<< std::endl;
+        std::cout << "[2] \t Download File: Press D / d " << std::endl;
+        std::cout << "[3] \t List Files: Press L / l " << std::endl;
+        std::cout << "[4] \t Delete/Remove File: Press R / r  " << std::endl;
+        std::cout << "[5] \t Rename/Change Name of File: Press C / c " << std::endl;
+        std::cout << "[6] \t Press Any other key to Exit " << std::endl;
+        std::cout << "--------------------------------------" << std::endl;
+    }
 
-void rename_file(int sockfd, char *filename) {
-  send_request(sockfd, Global::RENAME, filename);
-  char* new_file_name = "abracadabra.txt";  //TODO: remove hardcode
-  send_long(sockfd, strlen(new_file_name));
-  send_data(sockfd, (void *)new_file_name, strlen(new_file_name));
-}
+    std::string readFileName() {
+        std::string fileName;
+        std::cin >> fileName;
+        return fileName;
+    }
+
+    void handleChoice(char choice) {
+        std::string fileName;
+        ServerSocket serverSocket;
+        switch(choice) {
+            case 'U':
+            case 'u': 
+                        serverSocket.establishConnection(PORT, IP);  
+                        std::cout << "Enter file path: ";
+                        fileName = readFileName();
+                        serverSocket.uploadFile(fileName.c_str());
+                        break;
+            case 'D':
+            case 'd': 
+                        serverSocket.establishConnection(PORT, IP);  
+                        std::cout << "Enter file name: ";
+                        fileName = readFileName();
+                        serverSocket.downloadFile(fileName.c_str());
+                        break;
+            case 'L':
+            case 'l': 
+                        serverSocket.establishConnection(PORT, IP);  
+                        serverSocket.listFiles();
+                        break;
+            case 'R':
+            case 'r': 
+                        serverSocket.establishConnection(PORT, IP);  
+                        std::cout << "Enter file name: ";
+                        fileName = readFileName();
+                        serverSocket.deleteFile(fileName.c_str());
+                        break;
+            case 'C':
+            case 'c': 
+                        serverSocket.establishConnection(PORT, IP);  
+                        std::cout << "Enter file name: ";
+                        fileName = readFileName();
+                        serverSocket.renameFile(fileName.c_str());
+                        break;
+            default:
+                        std::cout << "Terminating the Program" << std::endl << std::endl;
+                        exit(0);
+        }
+    }
+};
 
 int main(int argc, char** argv) {
- while(true) {
-    int e;
-
-    //connect to socket
-    int sockfd;
-    struct sockaddr_in server_addr;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sockfd < 0) {
-      std::cout<<"[-]Error in socket"<<std::endl;
-      exit(1);
+    if(argc != 3) {
+        std::cout << "USAGE: ./client <SERVER_IP> <SERVER_PORT> " << std::endl;
+        return 0;
     }
-    std::cout<<"[+]Server socket created successfully."<<std::endl;
-
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = PORT;
-    server_addr.sin_addr.s_addr = inet_addr(IP);
-
-    e = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
-    if(e == -1) {
-      std::cout<<"[-]Error in socket"<<std::endl;
-      exit(1);
-    }
-
-
-    std::cout<<"[+]Connected to Server."<<std::endl;
-  
-    std::cout<<"[i] \t Main Menu \n\n"<<std::endl;
-
-    std::cout<<"[1] \t Upload File: Press U / u "<<std::endl;
-    std::cout<<"[1] \t Download File: Press D / d "<<std::endl;
-    std::cout<<"[1] \t List Files: Press L / l "<<std::endl;
-    std::cout<<"[1] \t Delete/Remove File: Press R / r  "<<std::endl;
-    std::cout<<"[1] \t Rename/Change Name of File: Press C / c "<<std::endl;
-    std::cout<<"[1] \t Press Any other key to Exit "<<std::endl;
     
-    char input;
-    std::cin >> input;
+    IP = argv[1];
+    PORT = atoi(argv[2]);
 
-    std::string s;
-    switch(input) {
-      case 'U':
-      case 'u': 
-                std::cin >> s;
-                upload_file(sockfd, s.c_str());
-                break;
-      case 'D':
-      case 'd': 
-                download_file(sockfd, "test.txt");
-                break;
-      case 'L':
-      case 'l': 
-                list_files(sockfd);
-                break;
-      case 'R':
-      case 'r': 
-                delete_file(sockfd, "test.txt");
-                break;
-      case 'C':
-      case 'c': 
-                rename_file(sockfd, "test.txt");
-                break;
-      default:
-                std::cout<<"Terminating the Program";
-                exit(0);
-    }   
- }
+    MenuHandler M;
+    while(true) {  
+        M.printMenu();
+        char choice;
+        std::cin >> choice;
+        M.handleChoice(choice);
+    }
 }

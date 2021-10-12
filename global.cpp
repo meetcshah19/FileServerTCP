@@ -10,6 +10,7 @@
 const int REQUEST_SIZE = 256; 
 const int SIZE = 1024; 
 const int FILENAME_SIZE = 256; 
+const float SLEEP_TIME = 0.5;
 const std::string STORAGE_PATH = "files/";
 
 namespace Global {
@@ -22,93 +23,94 @@ namespace Global {
     };
 }
 
-bool send_data(int sock, void *buf, int buflen) {
-    unsigned char *pbuf = (unsigned char *) buf;
+#define print(x) std::cerr << #x << " is " << x << std::endl 
 
-    while (buflen > 0) {
-        int bytes_sent = send(sock, pbuf, buflen, 0);
-        if(bytes_sent < 0) {
-          return false; 
+class Socket {
+    protected:
+    int fileDescriptor;
+    struct sockaddr_in address;
+    public:
+
+    int getDescriptor() {
+        return fileDescriptor;
+    }
+    bool sendData(void *buf, int buflen) {
+        unsigned char *pbuf = (unsigned char *) buf;
+        while (buflen > 0) {
+            int bytes_sent = send(fileDescriptor, pbuf, buflen, 0);
+            if(bytes_sent < 0) {
+            return false; 
+            }
+            pbuf += bytes_sent;
+            buflen -= bytes_sent;
+        }
+        return true;    
+    }
+    bool sendLong(long value) {
+        value = htonl(value);
+        return sendData(&value, sizeof(value));
+    }
+    bool sendFile(FILE *f) {
+        fseek(f, 0, SEEK_END);
+        long fileSize = ftell(f);
+        rewind(f);
+        if (fileSize == EOF)
+            return false;
+        if (!sendLong(fileSize))
+            return false;
+        if (fileSize > 0) {
+            char buffer[1024];
+            do {
+                size_t num = fileSize > sizeof(buffer) ? sizeof(buffer): fileSize;
+                num = fread(buffer, 1, num, f);
+                if (num < 1)
+                    return false;
+                if (!sendData(buffer, num))
+                    return false;
+                fileSize -= num;
+            } while (fileSize > 0);
+        }
+        return true;
+    }
+    bool readData(void *buf, int buflen) {
+        unsigned char *pbuf = (unsigned char *) buf;
+        while (buflen > 0) {
+            int num = recv(fileDescriptor, pbuf, buflen, 0);
+            if (num <= 0)
+                return false;
+            pbuf += num;
+            buflen -= num;
+        }
+        return true;
+    }
+    bool readLong(long *value) {
+        if (!readData(value, sizeof(value)))
+            return false;
+        *value = ntohl(*value);
+        return true;       
+    }
+    bool readFile(FILE *f) {
+        long fileSize;
+        if (!readLong(&fileSize))
+            return false;
+        if (fileSize > 0) {
+            char buffer[1024];
+            do {
+                int num = fileSize > sizeof(buffer) ? sizeof(buffer): fileSize;
+                if (!readData(buffer, num))
+                    return false;
+                int offset = 0;
+                do {
+                    size_t written = fwrite(&buffer[offset], 1, num-offset, f);
+                    if (written < 1)
+                        return false;
+                    offset += written;
+                } while (offset < num);
+
+                fileSize -= num;
+            } while (fileSize > 0);
         }
 
-        pbuf += bytes_sent;
-        buflen -= bytes_sent;
-    }
-
-    return true;
-}
-
-bool send_long(int sock, long value) {
-    value = htonl(value);
-    return send_data(sock, &value, sizeof(value));
-}
-
-bool send_file(int sock, FILE *f) {
-    fseek(f, 0, SEEK_END);
-    long filesize = ftell(f);
-    rewind(f);
-    if (filesize == EOF)
-        return false;
-    if (!send_long(sock, filesize))
-        return false;
-    if (filesize > 0) {
-        char buffer[1024];
-        do {
-            size_t num = filesize > sizeof(buffer) ? sizeof(buffer): filesize;
-            num = fread(buffer, 1, num, f);
-            if (num < 1)
-                return false;
-            if (!send_data(sock, buffer, num))
-                return false;
-            filesize -= num;
-        } while (filesize > 0);
-    }
-    return true;
-}
-
-bool read_data(int sock, void *buf, int buflen) {
-    unsigned char *pbuf = (unsigned char *) buf;
-
-    while (buflen > 0) {
-        int num = recv(sock, pbuf, buflen, 0);
-        if (num <= 0)
-            return false;
-
-        pbuf += num;
-        buflen -= num;
-    }
-
-    return true;
-}
-
-bool read_long(int sock, long *value) {
-    if (!read_data(sock, value, sizeof(value)))
-        return false;
-    *value = ntohl(*value);
-    return true;
-}
-
-bool read_file(int sock, FILE *f) {
-    long filesize;
-    if (!read_long(sock, &filesize))
-        return false;
-    if (filesize > 0) {
-        char buffer[1024];
-        do {
-            int num = filesize > sizeof(buffer) ? sizeof(buffer): filesize;
-            if (!read_data(sock, buffer, num))
-                return false;
-            int offset = 0;
-            do {
-                size_t written = fwrite(&buffer[offset], 1, num-offset, f);
-                if (written < 1)
-                    return false;
-                offset += written;
-            } while (offset < num);
-
-            filesize -= num;
-        } while (filesize > 0);
-    }
-
-    return true;
-}
+        return true;    
+    }    
+};
