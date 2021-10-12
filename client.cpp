@@ -10,9 +10,10 @@
 int PORT;
 std::string IP;
 
-
+//Handles sending and receiving data from the server 
 class ServerSocket : public Socket {
     public:
+    //Initialise socket and save file descriptor
     ServerSocket() {
         fileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
         if(fileDescriptor < 0) {
@@ -20,7 +21,8 @@ class ServerSocket : public Socket {
             exit(1);
         }
     }
-
+    
+    //Establish connection with server 
     void establishConnection(int PORT, std::string IP) {
         address.sin_family = AF_INET;
         address.sin_port = PORT;
@@ -33,7 +35,7 @@ class ServerSocket : public Socket {
         }
     }
 
-
+    //Send the request type data to server 
     void sendRequest(Global::Commands command, const char *fileName = NULL) {
         //make request
         sendLong(REQUEST_SIZE); 
@@ -59,7 +61,8 @@ class ServerSocket : public Socket {
         fclose(fp);  
         std::cout << "[+] File Downloaded Successfully" << std::endl; 
     }
-
+    
+    //Upload file to server
     void uploadFile(const char *filePath) {
         FILE *fp = fopen(filePath, "r"); 
         if(fp == NULL) {
@@ -79,7 +82,8 @@ class ServerSocket : public Socket {
         std::cout << "[+] File uploaded successfully." << std::endl;
 
     }
-
+    
+    //List files present in server 
     void listFiles() {
         sendRequest( Global::LIST);
         //receive file list
@@ -92,12 +96,14 @@ class ServerSocket : public Socket {
         std::cout << "----------" << std::endl; 
         std::cout << filesList << std::endl; 
     } 
-
+    
+    //Delete a file from server 
     void deleteFile(const char *fileName) {
         sendRequest( Global::DELETE, fileName);
         std::cout << "[+] File Deleted Successfully" << std::endl;
     }
-
+    
+    //Rename file in server 
     void renameFile(const char *fileName) {
         std::cout << "Enter new file name: ";
         std::string newFileName;
@@ -110,6 +116,7 @@ class ServerSocket : public Socket {
     }
 };
 
+//Handles all the i/o related to the client user interface 
 class MenuHandler {
     public: 
     void printMenu() {
