@@ -13,9 +13,13 @@
 
 #define QUEUE_LIM 10
 
+//The mutex synchronizes access to the set of lockedFiles
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+//The set lockedFiles contains names of files that are still being uploaded
 std::set<std::string> lockedFiles;
 
+//Handles receiving and sending data to the client
 class ClientSocket : public Socket {
     public:
     ClientSocket(int serverSocketDescriptor) {
@@ -26,7 +30,8 @@ class ClientSocket : public Socket {
             return;
         }
     }
-
+    
+    //Receive file from client and store in server
     void uploadFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
 
@@ -42,7 +47,9 @@ class ClientSocket : public Socket {
         lockedFiles.erase(fileName);
         pthread_mutex_unlock(&lock); 
     }
-
+    
+    //Send requested file to client. If file is currently being uploaded, 
+    //the thread will block till the upload is complete.
     void downloadFile(char *fileName) {
         while(true){
             pthread_mutex_lock(&lock);
@@ -63,7 +70,8 @@ class ClientSocket : public Socket {
         sendFile(fp); 
         fclose(fp);
     }
-
+    
+    //Send list of files to client
     void listFiles() {
         std::string fileList = "";
         for (const auto &entry : std::filesystem::directory_iterator(STORAGE_PATH)) {
@@ -73,7 +81,8 @@ class ClientSocket : public Socket {
         sendData((void *)fileList.c_str(), fileList.size()+1);
         close( getDescriptor());
     }
-
+    
+    //Delete specified file from server
     void deleteFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
         FILE* fp = fopen(filePath.c_str(), "r"); 
@@ -85,7 +94,8 @@ class ClientSocket : public Socket {
         shellCommand += filePath; 
         system(shellCommand.c_str());
     }
-
+    
+    //Rename file on server
     void renameFile(char *fileName) {
         std::string filePath = STORAGE_PATH + fileName;
         FILE* fp = fopen(filePath.c_str(), "r"); 
@@ -108,6 +118,7 @@ class ClientSocket : public Socket {
     }
 };
 
+//Listens for new connections and assigns it to new threads
 class ServerSocket : public Socket {
     public:
     ServerSocket() {
